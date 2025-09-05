@@ -1,0 +1,73 @@
+Tutorial: Construindo Linux From Scratch (LFS) com QEMU
+
+1. Criar a imagem do disco para o LFS
+
+    qemu-img create -f qcow2 lfs.img 20G
+
+Isso gera um disco de 20 GB expansível em QCOW2.
+
+------------------------------------------------------------------------
+
+2. Iniciar a VM com um LiveCD (host temporário)
+
+Exemplo com Debian minimal:
+
+    qemu-system-x86_64   -m 4096   -smp 2   -hda lfs.img   -cdrom debian-netinst.iso   -boot d   -enable-kvm
+
+Isso instala o Debian como host dentro do QEMU.
+
+------------------------------------------------------------------------
+
+3. Preparar a partição para o LFS
+
+Dentro da VM (Debian instalado):
+
+    fdisk /dev/vda
+    mkfs.ext4 /dev/vda2
+    mkdir -pv /mnt/lfs
+    mount /dev/vda2 /mnt/lfs
+
+Agora /mnt/lfs está pronto.
+
+------------------------------------------------------------------------
+
+4. Compartilhar diretórios com o host real
+
+Opção A: Montar a imagem no host
+
+    sudo modprobe nbd max_part=8
+    sudo qemu-nbd --connect=/dev/nbd0 lfs.img
+    sudo mount /dev/nbd0p2 /mnt/lfs
+
+Desmontar:
+
+    sudo umount /mnt/lfs
+    sudo qemu-nbd --disconnect /dev/nbd0
+
+Opção B: Usar virtiofs
+
+No host:
+
+    qemu-system-x86_64   -m 4096   -smp 2   -hda lfs.img   -virtfs local,path=/path/host/lfs,mount_tag=lfs,security_model=passthrough,id=lfs
+
+Na VM:
+
+    mount -t virtiofs lfs /mnt/lfs
+
+------------------------------------------------------------------------
+
+5. Construção do LFS
+
+    export LFS=/mnt/lfs
+    mkdir -pv $LFS/sources
+    chmod -v a+wt $LFS/sources
+
+Seguir os passos do livro LFS.
+
+------------------------------------------------------------------------
+
+6. Bootando no LFS final
+
+    qemu-system-x86_64   -m 4096   -smp 2   -hda lfs.img   -enable-kvm
+
+Se tudo deu certo, o QEMU inicia no seu Linux From Scratch 🎉
