@@ -1,0 +1,76 @@
+Tutorial: Configuração de QEMU para LFS com Design
+
+Criar a imagem do disco
+
+Tipo: QCOW2 (cresce dinamicamente)
+
+Tamanho: 50 GB
+Comando:
+qemu-img create -f qcow2 lfs_design.img 50G
+
+Configurar RAM e CPUs
+
+RAM: 6 GB (ou ajuste conforme host)
+
+CPUs: 4 núcleos
+
+ISO do host
+
+Use uma distro mínima: Debian netinst, Alpine, Ubuntu minimal
+
+Serve como ambiente de compilação, sem interface gráfica
+
+Compartilhamento de arquivos
+
+Permite editar arquivos do LFS no host físico
+Opção A: virtiofs (recomendada)
+qemu-system-x86_64 -m 6G -smp 4 -hda lfs_design.img -cdrom debian-netinst.iso -boot d -virtfs local,path=/home/usuario/lfs_share,mount_tag=lfs,security_model=passthrough,id=lfs
+Na VM Debian:
+mkdir -pv /mnt/lfs_share
+mount -t virtiofs lfs /mnt/lfs_share
+
+Opção B: qemu-nbd
+
+Útil para montar a partição do LFS diretamente no host real
+
+Conectar imagem:
+sudo modprobe nbd max_part=8
+sudo qemu-nbd --connect=/dev/nbd0 lfs_design.img
+sudo mount /dev/nbd0p2 /mnt/lfs
+
+Desmontar:
+sudo umount /mnt/lfs
+sudo qemu-nbd --disconnect /dev/nbd0
+
+Durante a instalação do Debian no QEMU
+
+Crie duas partições:
+
+/dev/vda1 → Debian host
+
+/dev/vda2 → futura LFS
+
+Formate as duas partições de ext4
+
+Após instalação do Debian
+
+Monte a partição do LFS:
+mkdir -pv /mnt/lfs
+mount /dev/vda2 /mnt/lfs
+
+Agora /mnt/lfs está pronta para construir o Linux From Scratch
+
+Construção do LFS
+
+Siga o livro LFS normalmente
+
+Use /mnt/lfs como diretório raiz
+
+Exemplo:
+export LFS=/mnt/lfs
+mkdir -pv $LFS/sources
+chmod -v a+wt $LFS/sources
+
+Bootando no LFS final
+qemu-system-x86_64 -m 6G -smp 4 -hda lfs_design.img -enable-kvm
+
